@@ -83,6 +83,12 @@ npm run dev
 4. Build for Production:
 npm run build
 
+PLATFORM FOUNDATION
+
+The `feature/platform-foundation` branch adds an isolated FastAPI backend foundation under `backend/`. It currently exposes only `GET /health`, provides environment-based configuration, and defines the initial PostgreSQL/Alembic platform schema. Start it from `backend/` using the instructions in [backend/README.md](backend/README.md).
+
+The existing React CSV dashboard remains unchanged and does not require the backend to be running. Authentication, authorization, uploads, object storage, file extraction, workers, AI, and dashboard migration are intentionally not included yet.
+
 USING A DIFFERENT BUSINESS CSV
 
 The dashboard keeps the bundled Superstore file as its default, but it also supports importing another CSV from the `Import CSV` button in the header. This does not replace the bundled file or change the codebase; it changes the data for the current browser session only.
