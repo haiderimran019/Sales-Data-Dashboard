@@ -15,3 +15,5 @@ webapp/vite.config.js
 .env
 .env.*
 !.env.example
+.storage/
+backend/.storage/

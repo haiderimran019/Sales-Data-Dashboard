@@ -15,11 +15,13 @@ const navigation = [
   { to: "/products", label: "Product explorer", icon: Boxes },
   { to: "/insights", label: "Insights", icon: BookOpenText },
   { to: "/history", label: "My Analytics", icon: History },
+  { to: "/add-data", label: "Add Data", icon: Upload },
 ];
 
 const pageTitles: Record<string, string> = {
   "/": "Executive dashboard", "/sales": "Sales analysis", "/profitability": "Profitability", "/customers": "Customers", "/products": "Product explorer", "/insights": "Insights & data story",
   "/history": "My Analytics",
+  "/add-data": "Add Data",
 };
 
 export function AppShell({ children }: { children: ReactNode }) {

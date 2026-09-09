@@ -126,6 +126,9 @@ class File(Base):
     mime_type: Mapped[str | None] = mapped_column(String(150))
     file_size: Mapped[int] = mapped_column(nullable=False)
     checksum: Mapped[str | None] = mapped_column(String(128))
+    detected_type: Mapped[str | None] = mapped_column(String(30))
+    extraction_status: Mapped[str] = mapped_column(String(30), nullable=False, default="queued")
+    extraction_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="uploaded")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
 

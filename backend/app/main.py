@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.api import auth, history
+from app.api import auth, history, ingestion
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -33,3 +33,4 @@ def health() -> dict[str, str]:
 app.include_router(auth.router)
 app.include_router(auth.me_router)
 app.include_router(history.router)
+app.include_router(ingestion.router)

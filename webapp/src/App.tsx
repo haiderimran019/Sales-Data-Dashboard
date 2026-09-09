@@ -9,6 +9,7 @@ import { ProductsPage } from "./pages/ProductsPage";
 import { ProfitabilityPage } from "./pages/ProfitabilityPage";
 import { SalesPage } from "./pages/SalesPage";
 import { HistoryPage } from "./pages/HistoryPage";
+import { AddDataPage } from "./pages/AddDataPage";
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/insights" element={<InsightsPage />} />
               <Route path="/history" element={<HistoryPage />} />
+              <Route path="/add-data" element={<AddDataPage />} />
             </Routes>
           </AppShell>
         </DataProvider>

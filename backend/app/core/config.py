@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     storage_bucket: str | None = None
     storage_access_key: str | None = None
     storage_secret_key: str | None = None
+    local_storage_path: str = "./.storage"
+    max_upload_size_mb: int = 50
+    preview_row_limit: int = 100
+    preview_text_limit: int = 4000
 
     @property
     def cors_origin_list(self) -> list[str]:
