@@ -16,6 +16,10 @@ def test_structured_ai_output_requires_classification_and_evidence() -> None:
     with pytest.raises(ValueError):
         AIAnalystOutput.model_validate({"insights": [{"title": "Forecast", "summary": "Revenue will rise.", "insight_type": "forecast", "classification": "PREDICTION", "evidence": [evidence()], "confidence": 0.5, "uncertainty": "Unknown.", "importance": 0.5, "explanation": "Unsupported forecast."}]})
 
+    prediction = evidence()
+    prediction["source"] = "forecast artifact f1"
+    assert AIAnalystOutput.model_validate({"insights": [{"title": "Forecast", "summary": "Revenue may rise.", "insight_type": "forecast", "classification": "PREDICTION", "evidence": [prediction], "confidence": 0.5, "uncertainty": "Forecast uncertainty remains.", "importance": 0.5, "explanation": "The deterministic forecast supports this statement."}]}).insights[0].classification == "PREDICTION"
+
 
 def test_priority_score_is_deterministic() -> None:
     score = AIAnalystService.priority("CALCULATION", 0.9, 2, 0.8)

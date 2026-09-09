@@ -365,3 +365,31 @@ class AIInsightItem(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
 
     run: Mapped[AIInsightRun] = relationship(back_populates="items")
+
+
+class ForecastArtifact(Base):
+    __tablename__ = "forecast_artifacts"
+    __table_args__ = (
+        Index("ix_forecast_artifacts_organization_id", "organization_id"),
+        Index("ix_forecast_artifacts_version_id", "version_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    version_id: Mapped[UUID] = mapped_column(ForeignKey("project_versions.id", ondelete="CASCADE"), nullable=False)
+    dataset_id: Mapped[UUID] = mapped_column(ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
+    date_column: Mapped[str] = mapped_column(String(255), nullable=False)
+    measure_column: Mapped[str] = mapped_column(String(255), nullable=False)
+    frequency: Mapped[str] = mapped_column(String(20), nullable=False)
+    historical_observation_count: Mapped[int] = mapped_column(nullable=False)
+    forecast_horizon: Mapped[int] = mapped_column(nullable=False)
+    historical_values: Mapped[list[Any]] = mapped_column(JSON, nullable=False)
+    forecast_values: Mapped[list[Any]] = mapped_column(JSON, nullable=False)
+    lower_bound: Mapped[list[Any]] = mapped_column(JSON, nullable=False)
+    upper_bound: Mapped[list[Any]] = mapped_column(JSON, nullable=False)
+    method: Mapped[str] = mapped_column(String(40), nullable=False)
+    mae: Mapped[float | None] = mapped_column()
+    warnings: Mapped[list[str] | None] = mapped_column(JSON)
+    result_scope: Mapped[str] = mapped_column(String(30), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)

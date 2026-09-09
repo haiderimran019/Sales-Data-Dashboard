@@ -66,5 +66,6 @@ class AIAnalystOutput(BaseModel):
     def reject_predictions_without_forecast(self):
         for insight in self.insights:
             if insight.classification == "PREDICTION":
-                raise ValueError("Predictions require a deterministic forecast artifact")
+                if not any("forecast" in evidence.source.lower() or "forecast" in evidence.statement.lower() for evidence in insight.evidence):
+                    raise ValueError("Predictions require evidence from a deterministic forecast artifact")
         return self

@@ -32,7 +32,7 @@ class AIAnalystService:
     def generate(self, db: Session, *, project: Project, version: ProjectVersion) -> tuple[AIInsightRun, AIAnalystOutput]:
         context = build_context(db, project=project, version=version, settings=self.settings)
         output = self._provider().generate_structured(system_instruction=SYSTEM_INSTRUCTION, context=context)
-        run = AIInsightRun(organization_id=version.organization_id, project_id=project.id, version_id=version.id, provider=self.settings.ai_provider, model=self.settings.gemini_model, context_metadata={"limits": context.get("truncation", {}), "dataset_count": len(context.get("datasets", [])), "result_count": len(context.get("analytical_results", []))}, status="completed")
+        run = AIInsightRun(organization_id=version.organization_id, project_id=project.id, version_id=version.id, provider=self.settings.ai_provider, model=self.settings.gemini_model, context_metadata={"limits": context.get("truncation", {}), "dataset_count": len(context.get("datasets", [])), "result_count": len(context.get("analytical_results", [])), "forecast_count": len(context.get("forecasts", []))}, status="completed")
         db.add(run)
         db.flush()
         for insight in output.insights:

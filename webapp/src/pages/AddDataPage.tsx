@@ -10,6 +10,7 @@ type UploadItem = { filename: string; accepted: boolean; error?: string; file?: 
 type Profile = { datasets: { id: string; name: string; row_count: number | null; column_count: number; quality_score: number | null; domain: string; domain_confidence: number; profile_scope: string; quality_details?: { warnings?: string[] } }[]; columns: { id: string; dataset_id: string; original_name: string; normalized_name: string; inferred_type: string; semantic_type: string; confidence: number; null_percentage: number; uniqueness_percentage: number; statistics?: { minimum?: number | string; maximum?: number | string; mean?: number; median?: number; } | null }[]; relationships: { left_dataset_id: string; left_column_id: string; right_dataset_id: string; right_column_id: string; relationship_type: string; confidence: number }[]; opportunities: { kind: string; title: string; description: string; confidence: number }[] };
 type AnalysisRun = { id: string; status: string; plan: { analyses: { analysis_type: string }[] }; results: { id: string; analysis_type: string; title: string; description: string; status: string; result_data: { groups?: { key: string; value: number; contribution_percentage: number }[]; points?: { period: string; value: number; period_over_period_percentage: number | null }[]; bins?: { start: number; end: number; count: number }[]; coefficient?: number | null; potential_anomalies?: { row_index: number; value: number; severity: string }[]; [key: string]: unknown } | null; result_scope: string; warnings: string[] | null }[] };
 type AIInsightRun = { id: string; provider: string; model: string; context_metadata: { dataset_count: number; result_count: number; limits: Record<string, boolean> }; items: { id: string; item_type: string; classification: string; priority_score: number; payload: { title?: string; summary?: string; recommendation?: string; question?: string; description?: string; explanation?: string; evidence?: { statement: string; source: string; scope: string }[]; supporting_evidence?: { statement: string; source: string; scope: string }[]; confidence?: number; uncertainty?: string; risks?: string[]; next_step?: string } }[] };
+type Forecast = { id: string; date_column: string; measure_column: string; frequency: string; historical_observation_count: number; forecast_horizon: number; historical_values: { period: string; value: number }[]; forecast_values: { period: string; value: number }[]; lower_bound: { period: string; value: number }[]; upper_bound: { period: string; value: number }[]; method: string; mae: number | null; warnings: string[] | null; result_scope: string };
 
 const apiUrl = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
 const supported = ".csv,.xlsx,.pdf,.docx,.pptx,.png,.jpg,.jpeg,.webp";
@@ -29,6 +30,7 @@ export function AddDataPage() {
   const [understanding, setUnderstanding] = useState<Profile | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisRun | null>(null);
   const [aiInsights, setAiInsights] = useState<AIInsightRun | null>(null);
+  const [forecast, setForecast] = useState<Forecast | null>(null);
 
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -123,6 +125,30 @@ export function AddDataPage() {
     }
   };
 
+  const generateForecast = async () => {
+    if (!version || !understanding) return;
+    const dataset = understanding.datasets[0];
+    const dateColumn = understanding.columns.find((column) => column.dataset_id === dataset?.id && ["date", "datetime"].includes(column.semantic_type));
+    const measureColumn = understanding.columns.find((column) => column.dataset_id === dataset?.id && column.semantic_type === "numeric_measure");
+    if (!dataset || !dateColumn || !measureColumn) {
+      setMessage("A forecast requires a date/datetime column and a numeric measure.");
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    try {
+      const query = new URLSearchParams({ dataset_id: dataset.id, date_column: dateColumn.original_name, measure_column: measureColumn.original_name, horizon: "6" });
+      const response = await fetch(`${apiUrl}/api/projects/${projectId}/versions/${version.id}/forecasts?${query}`, { method: "POST", credentials: "include" });
+      const payload = await response.json() as Forecast & { detail?: string };
+      if (!response.ok) throw new Error(payload.detail || "Forecast could not be generated.");
+      setForecast(payload);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Forecast could not be generated.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return <div className="space-y-7">
     <div><p className="eyebrow">INGESTION</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">Add data</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-muted">Upload files together and review the bounded extraction preview before analytical understanding is added.</p></div>
     {status === "unavailable" && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">The ingestion API is not running. The existing Superstore dashboard remains available through the CSV importer.</div>}
@@ -139,11 +165,13 @@ export function AddDataPage() {
       <button className="primary-button mt-5" type="button" disabled={!version || !files.length || busy} onClick={() => void upload()}>{busy ? <LoaderCircle className="animate-spin" size={16} /> : <Upload size={16} />} {busy ? "Processing" : "Upload and process"}</button>
       {understanding && <button className="secondary-button ml-3 mt-5" type="button" disabled={busy} onClick={() => void analyze()}>Analyze data</button>}
       {analysis && <button className="secondary-button ml-3 mt-5" type="button" disabled={busy} onClick={() => void generateInsights()}>Generate AI insights</button>}
+      {analysis && <button className="secondary-button ml-3 mt-5" type="button" disabled={busy} onClick={() => void generateForecast()}>Generate forecast</button>}
     </section>
     {results.length > 0 && <section className="space-y-4"><h2 className="text-lg font-semibold">Processing results</h2>{results.map((item) => <article className="rounded-xl border border-line bg-white p-5 dark:bg-[#111827]" key={item.filename}><div className="flex items-center gap-2 text-sm font-medium">{item.accepted ? <CheckCircle2 className="text-emerald-600" size={17} /> : <AlertCircle className="text-amber-600" size={17} />}{item.filename}<span className="ml-auto text-xs text-muted">{item.file?.detected_type || "rejected"}</span></div>{item.error && <p className="mt-2 text-sm text-amber-800">{item.error}</p>}{item.file && <Preview metadata={item.file.extraction_metadata} />}</article>)}</section>}
     {understanding && <UnderstandingPanel profile={understanding} />}
     {analysis && <AnalysisPanel analysis={analysis} />}
     {aiInsights && <AIInsightsPanel run={aiInsights} />}
+    {forecast && <ForecastPanel forecast={forecast} />}
   </div>;
 }
 
@@ -171,6 +199,10 @@ function ResultPreview({ type, data }: { type: string; data: AnalysisRun["result
 
 function AIInsightsPanel({ run }: { run: AIInsightRun }) {
   return <section className="space-y-4"><div><p className="eyebrow">AI ANALYST</p><h2 className="mt-2 text-2xl font-semibold">Evidence-backed interpretation</h2><p className="mt-2 text-sm text-muted">The provider received bounded profile and analytical context only. Calculations remain deterministic.</p></div><div className="grid gap-4 md:grid-cols-2">{run.items.sort((left, right) => right.priority_score - left.priority_score).map((item) => <article className="rounded-xl border border-line bg-white p-5 dark:bg-[#111827]" key={item.id}><div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">{item.item_type.replaceAll("_", " ")}</span><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600">{item.classification}</span></div><h3 className="mt-3 font-semibold">{item.payload.title || item.payload.question || "Analyst note"}</h3><p className="mt-2 text-sm leading-6 text-muted">{item.payload.summary || item.payload.recommendation || item.payload.description || item.payload.explanation || item.payload.question}</p>{(item.payload.evidence || item.payload.supporting_evidence)?.map((evidence) => <p className="mt-3 border-l-2 border-emerald-500 pl-3 text-xs text-muted" key={`${evidence.source}-${evidence.statement}`}>{evidence.statement} <span className="text-[10px]">({evidence.source}, {evidence.scope})</span></p>)}{item.payload.uncertainty && <p className="mt-3 text-xs text-amber-700">Uncertainty: {item.payload.uncertainty}</p>}{item.payload.next_step && <p className="mt-3 text-xs font-medium text-ink">Next step: {item.payload.next_step}</p>}</article>)}</div></section>;
+}
+
+function ForecastPanel({ forecast }: { forecast: Forecast }) {
+  return <section className="space-y-4"><div><p className="eyebrow">FORECAST</p><h2 className="mt-2 text-2xl font-semibold">Deterministic forecast</h2><p className="mt-2 text-sm text-muted">{forecast.measure_column} forecast at {forecast.frequency} frequency using {forecast.method.replaceAll("_", " ")}.</p></div><article className="rounded-xl border border-line bg-white p-5 dark:bg-[#111827]"><div className="grid gap-3 text-sm sm:grid-cols-4"><p><span className="block text-xs text-muted">History</span>{forecast.historical_observation_count}</p><p><span className="block text-xs text-muted">Horizon</span>{forecast.forecast_horizon} periods</p><p><span className="block text-xs text-muted">MAE</span>{forecast.mae === null ? "Unavailable" : forecast.mae.toFixed(2)}</p><p><span className="block text-xs text-muted">Scope</span>{forecast.result_scope}</p></div><div className="mt-5 space-y-2">{forecast.forecast_values.map((point, index) => <div className="grid grid-cols-4 gap-2 text-sm" key={point.period}><span>{point.period}</span><span className="font-medium">{point.value.toFixed(2)}</span><span className="text-muted">{forecast.lower_bound[index]?.value.toFixed(2)} - {forecast.upper_bound[index]?.value.toFixed(2)}</span><span className="text-xs text-muted">interval</span></div>)}</div>{forecast.warnings?.map((warning) => <p className="mt-3 text-xs text-amber-700" key={warning}>{warning}</p>)}</article></section>;
 }
 
 function Preview({ metadata }: { metadata: ExtractionMetadata | null }) {
