@@ -15,6 +15,7 @@ from app.schemas.ingestion import FileResponse, SupportedTypeResponse, UploadIte
 from app.services.ingestion.detector import SUPPORTED_EXTENSIONS, detect_file
 from app.services.ingestion.registry import extractor_registry
 from app.services.ingestion.storage import LocalStorage
+from app.services.profiling.profiler import profile_extraction
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["ingestion"])
@@ -103,6 +104,7 @@ def upload_files(
             )
             db.add(stored)
             db.flush()
+            profile_extraction(db, organization_id=version.organization_id, project_id=version.project_id, version_id=version.id, file=stored, extraction=extraction.to_metadata())
             db.add(ProcessingJob(organization_id=version.organization_id, project_id=version.project_id, version_id=version.id, file_id=stored.id, job_type="ingestion", status="completed"))
             db.commit()
             db.refresh(stored)

@@ -134,6 +134,7 @@ class File(Base):
 
     version: Mapped[ProjectVersion] = relationship(back_populates="files")
     processing_jobs: Mapped[list["ProcessingJob"]] = relationship(back_populates="file")
+    datasets: Mapped[list["Dataset"]] = relationship(back_populates="file", cascade="all, delete-orphan")
 
 
 class ProcessingJob(Base):
@@ -176,3 +177,105 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
 
     user: Mapped[User | None] = relationship(back_populates="audit_logs")
+
+
+class Dataset(Base):
+    __tablename__ = "datasets"
+    __table_args__ = (
+        Index("ix_datasets_organization_id", "organization_id"),
+        Index("ix_datasets_version_id", "version_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    version_id: Mapped[UUID] = mapped_column(ForeignKey("project_versions.id", ondelete="CASCADE"), nullable=False)
+    file_id: Mapped[UUID] = mapped_column(ForeignKey("files.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    dataset_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    row_count: Mapped[int | None] = mapped_column()
+    column_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    profile_scope: Mapped[str] = mapped_column(String(30), nullable=False, default="exact")
+    quality_score: Mapped[float | None] = mapped_column()
+    quality_details: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    domain: Mapped[str] = mapped_column(String(50), nullable=False, default="General/Unknown")
+    domain_confidence: Mapped[float] = mapped_column(default=0.0, nullable=False)
+    domain_evidence: Mapped[list[str] | None] = mapped_column(JSON)
+    dataset_metadata: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+    file: Mapped[File] = relationship(back_populates="datasets")
+    columns: Mapped[list["DatasetColumn"]] = relationship(back_populates="dataset", cascade="all, delete-orphan")
+
+
+class DatasetColumn(Base):
+    __tablename__ = "dataset_columns"
+    __table_args__ = (
+        Index("ix_dataset_columns_dataset_id", "dataset_id"),
+        UniqueConstraint("dataset_id", "normalized_name", name="uq_dataset_column_normalized_name"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    dataset_id: Mapped[UUID] = mapped_column(ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
+    original_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    inferred_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    semantic_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    confidence: Mapped[float] = mapped_column(nullable=False, default=0.0)
+    evidence: Mapped[list[str] | None] = mapped_column(JSON)
+    null_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    null_percentage: Mapped[float] = mapped_column(nullable=False, default=0.0)
+    unique_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    uniqueness_percentage: Mapped[float] = mapped_column(nullable=False, default=0.0)
+    sample_values: Mapped[list[Any] | None] = mapped_column(JSON)
+    statistics: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    top_values: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
+    outlier_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    outlier_percentage: Mapped[float] = mapped_column(nullable=False, default=0.0)
+    outlier_method: Mapped[str | None] = mapped_column(String(30))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+    dataset: Mapped[Dataset] = relationship(back_populates="columns")
+
+
+class RelationshipCandidate(Base):
+    __tablename__ = "relationship_candidates"
+    __table_args__ = (
+        Index("ix_relationship_candidates_organization_id", "organization_id"),
+        Index("ix_relationship_candidates_version_id", "version_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    version_id: Mapped[UUID] = mapped_column(ForeignKey("project_versions.id", ondelete="CASCADE"), nullable=False)
+    left_dataset_id: Mapped[UUID] = mapped_column(ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
+    left_column_id: Mapped[UUID] = mapped_column(ForeignKey("dataset_columns.id", ondelete="CASCADE"), nullable=False)
+    right_dataset_id: Mapped[UUID] = mapped_column(ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
+    right_column_id: Mapped[UUID] = mapped_column(ForeignKey("dataset_columns.id", ondelete="CASCADE"), nullable=False)
+    relationship_type: Mapped[str] = mapped_column(String(30), nullable=False, default="unknown")
+    confidence: Mapped[float] = mapped_column(nullable=False, default=0.0)
+    evidence: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+
+class AnalysisOpportunity(Base):
+    __tablename__ = "analysis_opportunities"
+    __table_args__ = (
+        Index("ix_analysis_opportunities_organization_id", "organization_id"),
+        Index("ix_analysis_opportunities_version_id", "version_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    version_id: Mapped[UUID] = mapped_column(ForeignKey("project_versions.id", ondelete="CASCADE"), nullable=False)
+    dataset_id: Mapped[UUID | None] = mapped_column(ForeignKey("datasets.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(String(50), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence: Mapped[list[str] | None] = mapped_column(JSON)
+    confidence: Mapped[float] = mapped_column(nullable=False, default=0.0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
