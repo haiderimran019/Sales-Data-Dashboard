@@ -8,6 +8,7 @@ type ExtractionMetadata = { tables?: { name: string; columns: string[]; rows: Re
 type UploadedFile = { detected_type: string | null; extraction_status: string; extraction_metadata: ExtractionMetadata | null };
 type UploadItem = { filename: string; accepted: boolean; error?: string; file?: UploadedFile };
 type Profile = { datasets: { id: string; name: string; row_count: number | null; column_count: number; quality_score: number | null; domain: string; domain_confidence: number; profile_scope: string; quality_details?: { warnings?: string[] } }[]; columns: { id: string; dataset_id: string; original_name: string; normalized_name: string; inferred_type: string; semantic_type: string; confidence: number; null_percentage: number; uniqueness_percentage: number; statistics?: { minimum?: number | string; maximum?: number | string; mean?: number; median?: number; } | null }[]; relationships: { left_dataset_id: string; left_column_id: string; right_dataset_id: string; right_column_id: string; relationship_type: string; confidence: number }[]; opportunities: { kind: string; title: string; description: string; confidence: number }[] };
+type AnalysisRun = { id: string; status: string; plan: { analyses: { analysis_type: string }[] }; results: { id: string; analysis_type: string; title: string; description: string; status: string; result_data: { groups?: { key: string; value: number; contribution_percentage: number }[]; points?: { period: string; value: number; period_over_period_percentage: number | null }[]; bins?: { start: number; end: number; count: number }[]; coefficient?: number | null; potential_anomalies?: { row_index: number; value: number; severity: string }[]; [key: string]: unknown } | null; result_scope: string; warnings: string[] | null }[] };
 
 const apiUrl = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
 const supported = ".csv,.xlsx,.pdf,.docx,.pptx,.png,.jpg,.jpeg,.webp";
@@ -25,6 +26,7 @@ export function AddDataPage() {
   const [projectName, setProjectName] = useState("");
   const [creatingProject, setCreatingProject] = useState(false);
   const [understanding, setUnderstanding] = useState<Profile | null>(null);
+  const [analysis, setAnalysis] = useState<AnalysisRun | null>(null);
 
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -87,6 +89,22 @@ export function AddDataPage() {
     }
   };
 
+  const analyze = async () => {
+    if (!version) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const response = await fetch(`${apiUrl}/api/projects/${projectId}/versions/${version.id}/analyze`, { method: "POST", credentials: "include" });
+      const payload = await response.json() as AnalysisRun & { detail?: string };
+      if (!response.ok) throw new Error(payload.detail || "Analysis could not be completed.");
+      setAnalysis(payload);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Analysis could not be completed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return <div className="space-y-7">
     <div><p className="eyebrow">INGESTION</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">Add data</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-muted">Upload files together and review the bounded extraction preview before analytical understanding is added.</p></div>
     {status === "unavailable" && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">The ingestion API is not running. The existing Superstore dashboard remains available through the CSV importer.</div>}
@@ -101,10 +119,34 @@ export function AddDataPage() {
       <p className="mt-4 text-xs text-muted">Supported: CSV, Excel, PDF, Word, PowerPoint, PNG, JPG, and WEBP.</p>
       {files.length > 0 && <div className="mt-5 divide-y divide-line rounded-lg border border-line">{files.map((file) => <div className="flex items-center justify-between gap-3 p-3 text-sm" key={`${file.name}-${file.size}`}><span className="truncate">{file.name}</span><span className="shrink-0 text-xs text-muted">{(file.size / 1024).toFixed(1)} KB</span></div>)}</div>}
       <button className="primary-button mt-5" type="button" disabled={!version || !files.length || busy} onClick={() => void upload()}>{busy ? <LoaderCircle className="animate-spin" size={16} /> : <Upload size={16} />} {busy ? "Processing" : "Upload and process"}</button>
+      {understanding && <button className="secondary-button ml-3 mt-5" type="button" disabled={busy} onClick={() => void analyze()}>Analyze data</button>}
     </section>
     {results.length > 0 && <section className="space-y-4"><h2 className="text-lg font-semibold">Processing results</h2>{results.map((item) => <article className="rounded-xl border border-line bg-white p-5 dark:bg-[#111827]" key={item.filename}><div className="flex items-center gap-2 text-sm font-medium">{item.accepted ? <CheckCircle2 className="text-emerald-600" size={17} /> : <AlertCircle className="text-amber-600" size={17} />}{item.filename}<span className="ml-auto text-xs text-muted">{item.file?.detected_type || "rejected"}</span></div>{item.error && <p className="mt-2 text-sm text-amber-800">{item.error}</p>}{item.file && <Preview metadata={item.file.extraction_metadata} />}</article>)}</section>}
     {understanding && <UnderstandingPanel profile={understanding} />}
+    {analysis && <AnalysisPanel analysis={analysis} />}
   </div>;
+}
+
+function AnalysisPanel({ analysis }: { analysis: AnalysisRun }) {
+  return <section className="space-y-5"><div><p className="eyebrow">ANALYSIS</p><h2 className="mt-2 text-2xl font-semibold">Deterministic analytical results</h2><p className="mt-2 text-sm text-muted">Results are calculations with reproducibility metadata. They are not causal explanations.</p></div><div className="grid gap-4 md:grid-cols-2">{analysis.results.map((result) => <article className="rounded-xl border border-line bg-white p-5 dark:bg-[#111827]" key={result.id}><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{result.title}</h3><p className="mt-1 text-xs uppercase tracking-[0.1em] text-muted">{result.analysis_type.replaceAll("_", " ")} · {result.result_scope}</p></div><span className="text-xs text-muted">{visualizationHint(result.analysis_type)}</span></div><p className="mt-3 text-sm text-muted">{result.description}</p><ResultPreview type={result.analysis_type} data={result.result_data} />{result.warnings?.map((warning) => <p className="mt-2 text-xs text-amber-700" key={warning}>{warning}</p>)}</article>)}</div></section>;
+}
+
+function visualizationHint(type: string): string {
+  if (type === "time_series") return "line chart";
+  if (type === "grouped") return "bar chart";
+  if (type === "distribution") return "histogram";
+  if (type === "correlation") return "correlation card";
+  if (type === "anomaly") return "anomaly list";
+  return "metric card";
+}
+
+function ResultPreview({ type, data }: { type: string; data: AnalysisRun["results"][number]["result_data"] }) {
+  if (!data) return <p className="mt-4 text-sm text-muted">No result available because prerequisites were not met.</p>;
+  if (type === "grouped" && data.groups) return <div className="mt-4 space-y-2">{data.groups.slice(0, 5).map((group) => <div className="flex justify-between text-sm" key={group.key}><span>{group.key}</span><span className="font-medium">{group.value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ({group.contribution_percentage.toFixed(1)}%)</span></div>)}</div>;
+  if (type === "time_series" && data.points) return <div className="mt-4 space-y-2">{data.points.slice(-5).map((point) => <div className="flex justify-between text-sm" key={point.period}><span>{point.period}</span><span className="font-medium">{point.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>)}</div>;
+  if (type === "anomaly" && data.potential_anomalies) return <p className="mt-4 text-sm">{data.potential_anomalies.length} potential anomalies detected.</p>;
+  if (type === "correlation") return <p className="mt-4 text-2xl font-semibold">{typeof data.coefficient === "number" ? data.coefficient.toFixed(3) : "Unavailable"}</p>;
+  return <pre className="mt-4 max-h-32 overflow-auto rounded-lg bg-slate-50 p-3 text-xs dark:bg-slate-900">{JSON.stringify(data, null, 2)}</pre>;
 }
 
 function Preview({ metadata }: { metadata: ExtractionMetadata | null }) {

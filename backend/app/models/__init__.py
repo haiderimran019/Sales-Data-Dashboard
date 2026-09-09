@@ -1,5 +1,7 @@
 from app.models.platform import (
     AnalysisOpportunity,
+    AnalysisResult,
+    AnalysisRun,
     AuditLog,
     Dataset,
     DatasetColumn,
@@ -16,6 +18,8 @@ from app.models.platform import (
 __all__ = [
     "AuditLog",
     "AnalysisOpportunity",
+    "AnalysisResult",
+    "AnalysisRun",
     "Dataset",
     "DatasetColumn",
     "File",
