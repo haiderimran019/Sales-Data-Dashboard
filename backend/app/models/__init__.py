@@ -1,4 +1,6 @@
 from app.models.platform import (
+    AIInsightItem,
+    AIInsightRun,
     AnalysisOpportunity,
     AnalysisResult,
     AnalysisRun,
@@ -20,6 +22,8 @@ __all__ = [
     "AnalysisOpportunity",
     "AnalysisResult",
     "AnalysisRun",
+    "AIInsightItem",
+    "AIInsightRun",
     "Dataset",
     "DatasetColumn",
     "File",

@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.api import analytics, auth, history, ingestion, profiling
+from app.api import ai, analytics, auth, history, ingestion, profiling
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -36,3 +36,4 @@ app.include_router(history.router)
 app.include_router(ingestion.router)
 app.include_router(profiling.router)
 app.include_router(analytics.router)
+app.include_router(ai.router)

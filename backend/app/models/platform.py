@@ -325,3 +325,43 @@ class AnalysisResult(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
 
     run: Mapped[AnalysisRun] = relationship(back_populates="results")
+
+
+class AIInsightRun(Base):
+    __tablename__ = "ai_insight_runs"
+    __table_args__ = (
+        Index("ix_ai_insight_runs_organization_id", "organization_id"),
+        Index("ix_ai_insight_runs_version_id", "version_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    version_id: Mapped[UUID] = mapped_column(ForeignKey("project_versions.id", ondelete="CASCADE"), nullable=False)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    context_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="completed")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    items: Mapped[list["AIInsightItem"]] = relationship(back_populates="run", cascade="all, delete-orphan")
+
+
+class AIInsightItem(Base):
+    __tablename__ = "ai_insight_items"
+    __table_args__ = (
+        Index("ix_ai_insight_items_organization_id", "organization_id"),
+        Index("ix_ai_insight_items_run_id", "run_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    version_id: Mapped[UUID] = mapped_column(ForeignKey("project_versions.id", ondelete="CASCADE"), nullable=False)
+    run_id: Mapped[UUID] = mapped_column(ForeignKey("ai_insight_runs.id", ondelete="CASCADE"), nullable=False)
+    item_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    classification: Mapped[str] = mapped_column(String(30), nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    priority_score: Mapped[float] = mapped_column(nullable=False, default=0.0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+    run: Mapped[AIInsightRun] = relationship(back_populates="items")

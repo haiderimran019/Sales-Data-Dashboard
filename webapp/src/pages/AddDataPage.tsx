@@ -9,6 +9,7 @@ type UploadedFile = { detected_type: string | null; extraction_status: string; e
 type UploadItem = { filename: string; accepted: boolean; error?: string; file?: UploadedFile };
 type Profile = { datasets: { id: string; name: string; row_count: number | null; column_count: number; quality_score: number | null; domain: string; domain_confidence: number; profile_scope: string; quality_details?: { warnings?: string[] } }[]; columns: { id: string; dataset_id: string; original_name: string; normalized_name: string; inferred_type: string; semantic_type: string; confidence: number; null_percentage: number; uniqueness_percentage: number; statistics?: { minimum?: number | string; maximum?: number | string; mean?: number; median?: number; } | null }[]; relationships: { left_dataset_id: string; left_column_id: string; right_dataset_id: string; right_column_id: string; relationship_type: string; confidence: number }[]; opportunities: { kind: string; title: string; description: string; confidence: number }[] };
 type AnalysisRun = { id: string; status: string; plan: { analyses: { analysis_type: string }[] }; results: { id: string; analysis_type: string; title: string; description: string; status: string; result_data: { groups?: { key: string; value: number; contribution_percentage: number }[]; points?: { period: string; value: number; period_over_period_percentage: number | null }[]; bins?: { start: number; end: number; count: number }[]; coefficient?: number | null; potential_anomalies?: { row_index: number; value: number; severity: string }[]; [key: string]: unknown } | null; result_scope: string; warnings: string[] | null }[] };
+type AIInsightRun = { id: string; provider: string; model: string; context_metadata: { dataset_count: number; result_count: number; limits: Record<string, boolean> }; items: { id: string; item_type: string; classification: string; priority_score: number; payload: { title?: string; summary?: string; recommendation?: string; question?: string; description?: string; explanation?: string; evidence?: { statement: string; source: string; scope: string }[]; supporting_evidence?: { statement: string; source: string; scope: string }[]; confidence?: number; uncertainty?: string; risks?: string[]; next_step?: string } }[] };
 
 const apiUrl = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
 const supported = ".csv,.xlsx,.pdf,.docx,.pptx,.png,.jpg,.jpeg,.webp";
@@ -27,6 +28,7 @@ export function AddDataPage() {
   const [creatingProject, setCreatingProject] = useState(false);
   const [understanding, setUnderstanding] = useState<Profile | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisRun | null>(null);
+  const [aiInsights, setAiInsights] = useState<AIInsightRun | null>(null);
 
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -105,6 +107,22 @@ export function AddDataPage() {
     }
   };
 
+  const generateInsights = async () => {
+    if (!version) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const response = await fetch(`${apiUrl}/api/projects/${projectId}/versions/${version.id}/ai-insights`, { method: "POST", credentials: "include" });
+      const payload = await response.json() as AIInsightRun & { detail?: string };
+      if (!response.ok) throw new Error(payload.detail || "AI insights could not be generated.");
+      setAiInsights(payload);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "AI insights could not be generated.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return <div className="space-y-7">
     <div><p className="eyebrow">INGESTION</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">Add data</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-muted">Upload files together and review the bounded extraction preview before analytical understanding is added.</p></div>
     {status === "unavailable" && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">The ingestion API is not running. The existing Superstore dashboard remains available through the CSV importer.</div>}
@@ -120,10 +138,12 @@ export function AddDataPage() {
       {files.length > 0 && <div className="mt-5 divide-y divide-line rounded-lg border border-line">{files.map((file) => <div className="flex items-center justify-between gap-3 p-3 text-sm" key={`${file.name}-${file.size}`}><span className="truncate">{file.name}</span><span className="shrink-0 text-xs text-muted">{(file.size / 1024).toFixed(1)} KB</span></div>)}</div>}
       <button className="primary-button mt-5" type="button" disabled={!version || !files.length || busy} onClick={() => void upload()}>{busy ? <LoaderCircle className="animate-spin" size={16} /> : <Upload size={16} />} {busy ? "Processing" : "Upload and process"}</button>
       {understanding && <button className="secondary-button ml-3 mt-5" type="button" disabled={busy} onClick={() => void analyze()}>Analyze data</button>}
+      {analysis && <button className="secondary-button ml-3 mt-5" type="button" disabled={busy} onClick={() => void generateInsights()}>Generate AI insights</button>}
     </section>
     {results.length > 0 && <section className="space-y-4"><h2 className="text-lg font-semibold">Processing results</h2>{results.map((item) => <article className="rounded-xl border border-line bg-white p-5 dark:bg-[#111827]" key={item.filename}><div className="flex items-center gap-2 text-sm font-medium">{item.accepted ? <CheckCircle2 className="text-emerald-600" size={17} /> : <AlertCircle className="text-amber-600" size={17} />}{item.filename}<span className="ml-auto text-xs text-muted">{item.file?.detected_type || "rejected"}</span></div>{item.error && <p className="mt-2 text-sm text-amber-800">{item.error}</p>}{item.file && <Preview metadata={item.file.extraction_metadata} />}</article>)}</section>}
     {understanding && <UnderstandingPanel profile={understanding} />}
     {analysis && <AnalysisPanel analysis={analysis} />}
+    {aiInsights && <AIInsightsPanel run={aiInsights} />}
   </div>;
 }
 
@@ -147,6 +167,10 @@ function ResultPreview({ type, data }: { type: string; data: AnalysisRun["result
   if (type === "anomaly" && data.potential_anomalies) return <p className="mt-4 text-sm">{data.potential_anomalies.length} potential anomalies detected.</p>;
   if (type === "correlation") return <p className="mt-4 text-2xl font-semibold">{typeof data.coefficient === "number" ? data.coefficient.toFixed(3) : "Unavailable"}</p>;
   return <pre className="mt-4 max-h-32 overflow-auto rounded-lg bg-slate-50 p-3 text-xs dark:bg-slate-900">{JSON.stringify(data, null, 2)}</pre>;
+}
+
+function AIInsightsPanel({ run }: { run: AIInsightRun }) {
+  return <section className="space-y-4"><div><p className="eyebrow">AI ANALYST</p><h2 className="mt-2 text-2xl font-semibold">Evidence-backed interpretation</h2><p className="mt-2 text-sm text-muted">The provider received bounded profile and analytical context only. Calculations remain deterministic.</p></div><div className="grid gap-4 md:grid-cols-2">{run.items.sort((left, right) => right.priority_score - left.priority_score).map((item) => <article className="rounded-xl border border-line bg-white p-5 dark:bg-[#111827]" key={item.id}><div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">{item.item_type.replaceAll("_", " ")}</span><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600">{item.classification}</span></div><h3 className="mt-3 font-semibold">{item.payload.title || item.payload.question || "Analyst note"}</h3><p className="mt-2 text-sm leading-6 text-muted">{item.payload.summary || item.payload.recommendation || item.payload.description || item.payload.explanation || item.payload.question}</p>{(item.payload.evidence || item.payload.supporting_evidence)?.map((evidence) => <p className="mt-3 border-l-2 border-emerald-500 pl-3 text-xs text-muted" key={`${evidence.source}-${evidence.statement}`}>{evidence.statement} <span className="text-[10px]">({evidence.source}, {evidence.scope})</span></p>)}{item.payload.uncertainty && <p className="mt-3 text-xs text-amber-700">Uncertainty: {item.payload.uncertainty}</p>}{item.payload.next_step && <p className="mt-3 text-xs font-medium text-ink">Next step: {item.payload.next_step}</p>}</article>)}</div></section>;
 }
 
 function Preview({ metadata }: { metadata: ExtractionMetadata | null }) {

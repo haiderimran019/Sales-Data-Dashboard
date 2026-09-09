@@ -21,6 +21,15 @@ class Settings(BaseSettings):
     backend_url: str = "http://localhost:8000"
     cors_origins: str = "http://localhost:5173"
     ai_api_key: str | None = None
+    ai_provider: str = "gemini"
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-2.0-flash"
+    ai_timeout_seconds: float = 30.0
+    ai_max_datasets: int = 10
+    ai_max_columns: int = 100
+    ai_max_results: int = 50
+    ai_max_text_chars: int = 4000
+    ai_max_context_chars: int = 30000
     storage_endpoint: str | None = None
     storage_bucket: str | None = None
     storage_access_key: str | None = None
