@@ -8,3 +8,9 @@ def test_health_endpoint() -> None:
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_projects_require_authentication() -> None:
+    response = TestClient(app).get("/api/projects")
+
+    assert response.status_code == 401

@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
-import { BarChart3, BookOpenText, Boxes, ChevronRight, LayoutDashboard, Menu, Moon, Sun, Upload, UsersRound, WalletCards } from "lucide-react";
+import { BarChart3, BookOpenText, Boxes, ChevronRight, History, LayoutDashboard, LogOut, Menu, Moon, Sun, Upload, UsersRound, WalletCards } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { DateRangeFilter } from "./DateRangeFilter";
 import { useData } from "../context/DataContext";
 import { classNames } from "../lib/utils";
+import { useAuth } from "../context/AuthContext";
+import { LoginPage } from "../pages/LoginPage";
 
 const navigation = [
   { to: "/", label: "Overview", icon: LayoutDashboard },
@@ -12,10 +14,12 @@ const navigation = [
   { to: "/customers", label: "Customers", icon: UsersRound },
   { to: "/products", label: "Product explorer", icon: Boxes },
   { to: "/insights", label: "Insights", icon: BookOpenText },
+  { to: "/history", label: "My Analytics", icon: History },
 ];
 
 const pageTitles: Record<string, string> = {
   "/": "Executive dashboard", "/sales": "Sales analysis", "/profitability": "Profitability", "/customers": "Customers", "/products": "Product explorer", "/insights": "Insights & data story",
+  "/history": "My Analytics",
 };
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -24,6 +28,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation();
   const fileInput = useRef<HTMLInputElement>(null);
   const { importCsv, sourceName } = useData();
+  const { user, status, logout } = useAuth();
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
@@ -38,6 +43,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (file) void importCsv(file);
     event.target.value = "";
   };
+
+  if (status === "unauthenticated") return <LoginPage />;
 
   return (
     <div className="min-h-screen bg-canvas text-ink">
@@ -55,8 +62,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           {navigation.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} end={to === "/"} className={({ isActive }) => classNames("nav-link", isActive && "nav-link-active")}><Icon size={17} />{label}</NavLink>)}
         </nav>
         <div className="mt-auto rounded-xl border border-white/10 bg-white/5 p-4">
-          <p className="text-sm font-medium text-white">Portfolio project</p>
-          <p className="mt-1 text-xs leading-5 text-slate-300">Retail performance analysis built from 9,994 Superstore records.</p>
+          <p className="truncate text-sm font-medium text-white">{user?.display_name || "Local dashboard"}</p>
+          <p className="mt-1 truncate text-xs leading-5 text-slate-300">{user?.email || "Backend unavailable; demo mode"}</p>
+          {user && <button className="mt-3 flex items-center gap-2 text-xs text-slate-300 hover:text-white" type="button" onClick={() => void logout()}><LogOut size={14} /> Sign out</button>}
         </div>
       </aside>
       <div className="lg:pl-64">

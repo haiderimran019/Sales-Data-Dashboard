@@ -21,7 +21,9 @@ The API health check is available at `http://127.0.0.1:8000/health`.
 Configuration is loaded from environment variables and an optional local `.env` file. See `.env.example` for the supported names:
 
 - `DATABASE_URL`: PostgreSQL connection URL.
-- `SECRET_KEY`: application secret for future authentication features.
+- `SECRET_KEY`: application session signing secret.
+- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`: Google OpenID Connect client credentials.
+- `COOKIE_SECURE`: set to `true` when serving over HTTPS in production.
 - `AI_API_KEY`: reserved for a future provider adapter; unused in this phase.
 - `STORAGE_*`: reserved for future object storage; unused in this phase.
 
@@ -47,6 +49,6 @@ python3 -m py_compile app/main.py app/core/config.py app/models/platform.py
 
 ## Current scope
 
-Included: a health endpoint, environment-based configuration, SQLAlchemy models, PostgreSQL-oriented Alembic migrations, and organization-scoped ownership columns and indexes.
+Included: a health endpoint, Google OpenID Connect login, signed HttpOnly sessions, protected organization-scoped project/history APIs, environment-based configuration, SQLAlchemy models, PostgreSQL-oriented Alembic migrations, and organization-scoped ownership columns and indexes.
 
-Not included: authentication, authorization enforcement, uploads, object storage, file extraction, CSV engine migration, workers, AI, OCR, dashboard changes, or UI redesign. The current frontend continues to run independently when this backend is stopped.
+Not included: invitations, uploads, object storage, file extraction, CSV engine migration, workers, AI, OCR, dashboard migration, or UI redesign. The current frontend continues to run independently when this backend is stopped.
