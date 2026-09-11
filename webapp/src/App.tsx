@@ -10,6 +10,8 @@ import { ProfitabilityPage } from "./pages/ProfitabilityPage";
 import { SalesPage } from "./pages/SalesPage";
 import { HistoryPage } from "./pages/HistoryPage";
 import { AddDataPage } from "./pages/AddDataPage";
+import { ForecastingPage } from "./pages/ForecastingPage";
+import { AIAnalystPage } from "./pages/AIAnalystPage";
 
 export default function App() {
   return (
@@ -18,12 +20,14 @@ export default function App() {
         <DataProvider>
           <AppShell>
             <Routes>
-            <Route path="/" element={<OverviewPage />} />
-            <Route path="/sales" element={<SalesPage />} />
-            <Route path="/profitability" element={<ProfitabilityPage />} />
-            <Route path="/customers" element={<CustomersPage />} />
-            <Route path="/products" element={<ProductsPage />} />
-            <Route path="/insights" element={<InsightsPage />} />
+              <Route path="/" element={<OverviewPage />} />
+              <Route path="/sales" element={<SalesPage />} />
+              <Route path="/profitability" element={<ProfitabilityPage />} />
+              <Route path="/customers" element={<CustomersPage />} />
+              <Route path="/products" element={<ProductsPage />} />
+              <Route path="/insights" element={<InsightsPage />} />
+              <Route path="/ai-analyst" element={<AIAnalystPage />} />
+              <Route path="/forecasting" element={<ForecastingPage />} />
               <Route path="/history" element={<HistoryPage />} />
               <Route path="/add-data" element={<AddDataPage />} />
             </Routes>

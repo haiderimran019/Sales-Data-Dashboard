@@ -54,7 +54,7 @@ def detect_file(path: Path, filename: str, declared_mime: str | None = None) -> 
         actual_kind = _zip_kind(path)
         if actual_kind != kind:
             raise ValueError("The uploaded Office file content does not match its extension")
-    if extension == ".png" and header != b"\x89PNG\r\n\x1a\n":
+    if extension == ".png" and not header.startswith(b"\x89PNG\r\n\x1a\n"):
         raise ValueError("The uploaded PNG signature is invalid")
     if extension in {".jpg", ".jpeg"} and not header.startswith(b"\xff\xd8\xff"):
         raise ValueError("The uploaded JPEG signature is invalid")

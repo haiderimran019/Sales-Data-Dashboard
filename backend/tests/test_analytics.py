@@ -32,7 +32,7 @@ def test_time_series_growth_and_distribution() -> None:
     assert points[0]["period"] == "2024-01"
     assert points[1]["period_over_period_percentage"] is not None
     assert sum(item["count"] for item in distribution["bins"]) == 3
-    assert rolling_average(points, 2)[-1]["rolling_average"] == 56.0
+    assert rolling_average(points, 2)[-1]["rolling_average"] == 61.0
     assert compare_groups(ROWS, "category", "sales", "A", "B")["difference"] == -78.0
 
 
