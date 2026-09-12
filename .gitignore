@@ -17,4 +17,10 @@ webapp/vite.config.js
 .env.*
 !.env.example
 .storage/
-backend/.storage/
+backend/.storage/venv/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+node_modules/
+dist/
+*.log
