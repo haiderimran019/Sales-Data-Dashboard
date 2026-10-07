@@ -26,7 +26,8 @@ Configuration is loaded from environment variables and an optional local `.env` 
 - `SECRET_KEY`: application session signing secret.
 - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`: Google OpenID Connect client credentials.
 - `COOKIE_SECURE`: set to `true` when serving over HTTPS in production.
-- `AI_API_KEY`: reserved for a future provider adapter; unused in this phase.
+- `GEMINI_API_KEY`: server-side Gemini credential used by the AI analyst and dashboard insight endpoint.
+- `GEMINI_MODEL`: configurable Gemini model name.
 - `STORAGE_*`: reserved for future object storage; unused in this phase.
 
 Never commit `.env`, credentials, API keys, or private certificates.
@@ -53,10 +54,12 @@ python3 -m py_compile app/main.py app/core/config.py app/models/platform.py
 
 Included: a health endpoint, Google OpenID Connect login, signed HttpOnly sessions, protected organization-scoped project/history APIs, protected multi-file ingestion for CSV/XLSX/PDF/DOCX/PPTX/images, bounded normalized previews, environment-based configuration, SQLAlchemy models, PostgreSQL-oriented Alembic migrations, and organization-scoped ownership columns and indexes.
 
-Ingestion and deterministic profiling are synchronous in development and use `LocalStorage` behind a replaceable storage boundary. Tabular profiles use the bounded extraction preview; responses identify `profile_scope` so estimated statistics are not presented as exact. The quality score is transparent: `100 - min(45, missing_percentage*0.45) - min(25, duplicate_percentage*0.25) - min(10, outlier_percentage*0.10) - min(20, invalid_percentage*0.20)`. OCR, object storage, background workers, semantic AI interpretation, forecasting, CSV engine migration, dashboard migration, and invitations are not included. The current frontend continues to run independently when this backend is stopped.
+Ingestion and deterministic profiling are synchronous in development and use `LocalStorage` behind a replaceable storage boundary. Tabular profiles use the bounded extraction preview; responses identify `profile_scope` so estimated statistics are not presented as exact. The quality score is transparent: `100 - min(45, missing_percentage*0.45) - min(25, duplicate_percentage*0.25) - min(10, outlier_percentage*0.10) - min(20, invalid_percentage*0.20)`. OCR, object storage, background workers, and invitations are not included. The frontend's instant dashboard remains available when the backend is stopped; authenticated Gemini and saved workspaces do not.
 
 Analytics is also synchronous in this phase. `POST /api/projects/{project_id}/versions/{version_id}/analyze` creates a reproducible, version-scoped plan and persists bounded result artifacts. Results expose their calculation inputs, warnings, and `exact` or `estimated` scope. Supported deterministic artifacts include descriptive metrics, grouped aggregations, time series with period-over-period change, rolling averages, distributions, Pearson correlation, potential IQR anomalies, and descriptive group comparisons. No causal claims or AI interpretations are generated.
 
 The AI analyst is provider-agnostic at the application boundary and currently has one Gemini adapter selected by `AI_PROVIDER=gemini`. `GEMINI_API_KEY` is server-only and is sent to the provider through a request header; it is never exposed to the frontend. `POST /api/projects/{project_id}/versions/{version_id}/ai-insights` builds bounded context from profiles and analytical artifacts, validates structured output, rejects unsupported predictions, and persists classified insight items. The context excludes raw tabular rows, limits document excerpts and artifact counts, records truncation, and preserves exact/estimated scope. AI output is interpretation and recommendation only; deterministic analytics remain the source of numerical truth.
+
+`POST /api/dashboard/insights` accepts an authenticated, bounded KPI summary from the instant dashboard and returns a concise Gemini business interpretation with practical next checks. It does not accept or forward raw rows or uploaded file content.
 
 Forecasting is deterministic and synchronous in this phase. `POST /api/projects/{project_id}/versions/{version_id}/forecasts` creates a bounded forecast artifact using seasonal-naive when sufficient history exists, otherwise a linear trend. It aggregates duplicate periods, detects daily/weekly/monthly frequency, returns confidence bounds and a simple holdout MAE, and reports unavailable prerequisites explicitly. Forecast artifacts are included in the bounded AI context and are the only basis for `PREDICTION` labels.

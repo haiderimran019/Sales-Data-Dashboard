@@ -1,18 +1,18 @@
-@import url("https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --canvas: 210 33% 97%;
+  --canvas: 220 27% 97%;
   --surface: 0 0% 100%;
-  --ink: 213 42% 15%;
-  --muted: 213 16% 43%;
-  --line: 211 24% 87%;
-  --brand: 214 58% 28%;
-  --brand-soft: 201 78% 43%;
-  --accent: 187 62% 36%;
+  --ink: 222 40% 13%;
+  --muted: 218 13% 44%;
+  --line: 218 23% 88%;
+  --brand: 249 68% 55%;
+  --brand-soft: 249 78% 62%;
+  --accent: 173 67% 36%;
   --positive: 152 49% 38%;
   --negative: 0 66% 52%;
 }
@@ -33,12 +33,12 @@
 @layer base {
   body {
     @apply bg-canvas text-ink antialiased;
-    font-family: "Source Sans 3", "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-family: "Poppins", "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
     letter-spacing: 0;
   }
 
   h1, h2, h3, h4 {
-    font-family: "Source Sans 3", "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-family: "Poppins", "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
     letter-spacing: 0;
   }
 }
@@ -63,6 +63,78 @@
 
   .secondary-button {
     @apply inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm font-medium text-ink transition-colors duration-150 hover:border-brand/50 hover:text-brand;
+  }
+
+  .primary-button {
+    @apply inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:-translate-y-px hover:bg-brand/90 hover:shadow-md disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .select-input {
+    @apply appearance-none rounded-lg border border-line bg-surface px-3 py-2.5 text-sm font-medium shadow-sm outline-none transition-all hover:border-brand/50 focus:border-brand focus:ring-2 focus:ring-brand/15;
+  }
+
+  .studio-page {
+    min-height: calc(100vh - 4rem);
+    background:
+      radial-gradient(circle at 90% 6%, hsl(var(--brand-soft) / 0.08), transparent 24rem),
+      hsl(var(--canvas));
+  }
+
+  .studio-hero {
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1px solid hsl(var(--line));
+    background:
+      linear-gradient(135deg, hsl(var(--surface)) 0%, hsl(var(--canvas)) 60%, hsl(var(--brand-soft) / 0.08) 100%);
+  }
+
+  .studio-hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.26;
+    background-image: radial-gradient(hsl(var(--muted) / 0.22) 0.7px, transparent 0.7px);
+    background-size: 18px 18px;
+    mask-image: linear-gradient(to left, black, transparent 72%);
+  }
+
+  .studio-hero > div {
+    position: relative;
+    z-index: 1;
+  }
+
+  .upload-dropzone {
+    @apply rounded-2xl border border-dashed border-brand/35 bg-surface/90 p-5 shadow-[0_18px_55px_rgba(41,35,92,0.10)] backdrop-blur transition-all duration-200;
+  }
+
+  .upload-dropzone:hover,
+  .upload-dropzone-active {
+    @apply -translate-y-0.5 border-brand bg-brand/[0.035] shadow-[0_24px_64px_rgba(79,70,229,0.16)];
+  }
+
+  .status-chip {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-positive/10 px-2.5 py-1.5 text-xs font-semibold text-positive;
+  }
+
+  .metric-card {
+    @apply rounded-2xl border border-line bg-surface p-5 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/25 hover:shadow-[0_16px_38px_rgba(20,25,55,0.08)];
+  }
+
+  .metric-dot {
+    @apply h-2 w-2 rounded-full bg-muted;
+  }
+
+  .metric-dot-brand { @apply bg-brand; box-shadow: 0 0 0 4px hsl(var(--brand) / 0.1); }
+  .metric-dot-positive { @apply bg-positive; box-shadow: 0 0 0 4px hsl(var(--positive) / 0.1); }
+  .metric-dot-ink { @apply bg-ink/60; box-shadow: 0 0 0 4px hsl(var(--ink) / 0.06); }
+
+  .dashboard-panel {
+    @apply rounded-2xl border border-line bg-surface p-5 shadow-card md:p-6;
+  }
+
+  .insight-card {
+    @apply rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/[0.075] via-surface to-surface p-6 shadow-card;
   }
 
   .segmented {

@@ -12,6 +12,7 @@ import { HistoryPage } from "./pages/HistoryPage";
 import { AddDataPage } from "./pages/AddDataPage";
 import { ForecastingPage } from "./pages/ForecastingPage";
 import { AIAnalystPage } from "./pages/AIAnalystPage";
+import { DashboardStudioPage } from "./pages/DashboardStudioPage";
 
 export default function App() {
   return (
@@ -20,7 +21,8 @@ export default function App() {
         <DataProvider>
           <AppShell>
             <Routes>
-              <Route path="/" element={<OverviewPage />} />
+              <Route path="/" element={<DashboardStudioPage />} />
+              <Route path="/retail-overview" element={<OverviewPage />} />
               <Route path="/sales" element={<SalesPage />} />
               <Route path="/profitability" element={<ProfitabilityPage />} />
               <Route path="/customers" element={<CustomersPage />} />

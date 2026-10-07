@@ -1,17 +1,13 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import {
   BarChart3,
-  BookOpenText,
-  Boxes,
   BrainCircuit,
   ChevronRight,
   Database,
-  History,
   LayoutDashboard,
   LogOut,
   Menu,
   Moon,
-  Sparkles,
   Sun,
   TrendingUp,
   Upload,
@@ -27,48 +23,41 @@ import { LoginPage } from "../pages/LoginPage";
 
 const navigationGroups = [
   {
-    title: "Executive Dashboards",
+    title: "Workspace",
     items: [
-      { to: "/", label: "Executive Overview", icon: LayoutDashboard },
-      { to: "/sales", label: "Commercial Sales", icon: BarChart3 },
+      { to: "/", label: "Business Dashboard", icon: LayoutDashboard },
+      { to: "/add-data", label: "Upload & Connect", icon: Upload },
+    ],
+  },
+  {
+    title: "Business Analytics",
+    items: [
+      { to: "/sales", label: "Revenue & Sales", icon: BarChart3 },
       { to: "/profitability", label: "Profit & Margins", icon: WalletCards },
+      { to: "/customers", label: "Customers", icon: UsersRound },
+      { to: "/forecasting", label: "Forecasting", icon: TrendingUp },
     ],
   },
   {
-    title: "Portfolio Explorer",
+    title: "AI Intelligence",
     items: [
-      { to: "/customers", label: "Customer Segments", icon: UsersRound },
-      { to: "/products", label: "Product Explorer", icon: Boxes },
-    ],
-  },
-  {
-    title: "Advanced Intelligence",
-    items: [
-      { to: "/insights", label: "Strategic Insights", icon: BookOpenText },
-      { to: "/ai-analyst", label: "AI Strategic Analyst", icon: BrainCircuit },
-      { to: "/forecasting", label: "Predictive Forecast", icon: TrendingUp },
-    ],
-  },
-  {
-    title: "Data & Workspaces",
-    items: [
-      { to: "/add-data", label: "Data Ingestion & Profiler", icon: Upload },
-      { to: "/history", label: "Workspace History", icon: History },
+      { to: "/ai-analyst", label: "Gemini Business Analyst", icon: BrainCircuit },
     ],
   },
 ];
 
 const pageTitles: Record<string, string> = {
-  "/": "Executive Overview",
-  "/sales": "Commercial Sales Analysis",
+  "/": "Business Dashboard",
+  "/retail-overview": "Executive Overview",
+  "/sales": "Revenue & Sales",
   "/profitability": "Profitability & Margins",
-  "/customers": "Customer Segmentation & LTV",
+  "/customers": "Customer Analytics",
   "/products": "Product Catalog Explorer",
   "/insights": "Strategic Commercial Insights",
-  "/ai-analyst": "AI Strategic Analyst",
+  "/ai-analyst": "Gemini Business Analyst",
   "/forecasting": "Predictive Forecasting & Projections",
   "/history": "Workspace Audit & History",
-  "/add-data": "Universal Ingestion & Profiler",
+  "/add-data": "Upload & Connect Data",
 };
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -108,7 +97,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Sidebar */}
       <aside
         className={classNames(
-          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-line bg-[#0f172a] px-4 py-5 text-slate-100 shadow-[8px_0_30px_rgba(15,23,42,0.08)] transition-transform lg:translate-x-0 overflow-y-auto",
+          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col overflow-y-auto border-r border-white/10 bg-[#111827] px-4 py-5 text-slate-100 shadow-[8px_0_30px_rgba(15,23,42,0.12)] transition-transform lg:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -117,10 +106,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           <span className="brand-mark" aria-hidden="true" />
           <span className="flex flex-col leading-none">
             <span className="text-[10px] uppercase tracking-[0.24em] text-slate-400 font-bold">
-              SUPERSTORE
+              AUTOBOARD
             </span>
             <span className="mt-1 text-lg font-bold tracking-[-0.04em] text-white">
-              Analytics Suite
+              Data Studio
             </span>
           </span>
         </NavLink>
@@ -193,7 +182,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               <Menu size={18} />
             </button>
-            <span className="hidden font-medium sm:inline">Analytics</span>
+            <span className="hidden font-medium sm:inline">Autoboard</span>
             <ChevronRight className="hidden sm:block" size={15} />
             <span className="truncate font-bold text-ink">
               {pageTitles[location.pathname] || "Dashboard"}
@@ -201,16 +190,16 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
 
           <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
-            <DateRangeFilter />
+            {location.pathname !== "/" && <DateRangeFilter />}
 
             {/* Active Dataset Chip */}
-            <span
+            {location.pathname !== "/" && <span
               className="hidden max-w-36 truncate rounded-md border border-line bg-canvas px-2 py-1 text-[11px] font-medium text-muted xl:inline"
               title={sourceName}
             >
               <Database size={11} className="inline mr-1 text-brand" />
               {sourceName}
-            </span>
+            </span>}
 
             {/* Custom CSV upload */}
             <input
@@ -220,7 +209,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               accept=".csv,text/csv"
               onChange={handleImport}
             />
-            <button
+            {location.pathname !== "/" && <button
               className="secondary-button shrink-0 px-2 sm:px-3 text-xs"
               type="button"
               onClick={() => fileInput.current?.click()}
@@ -229,7 +218,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               <Upload size={14} />
               <span className="hidden sm:inline">Import CSV</span>
-            </button>
+            </button>}
 
             {/* Theme Toggle */}
             <button
