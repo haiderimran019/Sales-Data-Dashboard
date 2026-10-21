@@ -1,117 +1,282 @@
-import type { AIInsightItem, AIInsightRun } from "./api";
 import type { OrderRow } from "../types";
-import { customerSummary, groupRows, lastMonthDelta, monthly, sum } from "./analytics";
+import { customerSummary, groupRows, monthly, sum } from "./analytics";
+import { forecastSeries, buildMonthlySeries } from "./forecaster";
 import { currency, percent } from "./utils";
 
-export function generateClientAIInsights(rows: OrderRow[]): AIInsightRun {
+/**
+ * Rule-based insight generator.
+ *
+ * This is deliberately not a language model. Every statement it produces is
+ * computed from the loaded rows, and every figure quoted in the prose is the
+ * same figure carried in the `evidence` list beside it. The taxonomy below
+ * exists so a reader can tell the difference between an arithmetic result and a
+ * judgement call:
+ *
+ *   - `measured`   a direct aggregation of the data. Reproducible, not arguable.
+ *   - `inferred`   a reading of those measurements that a reasonable analyst
+ *                  might disagree with.
+ *   - `action`     a suggested next step. Carries the most assumption.
+ *
+ * Nothing here is phrased more confidently than the arithmetic supports, and
+ * findings that do not apply to the loaded data are omitted rather than
+ * padded with a plausible-sounding default.
+ */
+
+export type FindingKind = "measured" | "inferred" | "action";
+
+export type Evidence = {
+  statement: string;
+  /** Which computation produced this figure. */
+  basis: string;
+};
+
+export type Finding = {
+  id: string;
+  kind: FindingKind;
+  title: string;
+  detail: string;
+  evidence: Evidence[];
+  /** What this finding cannot tell you, where that matters. */
+  caveat?: string;
+  nextStep?: string;
+};
+
+export type InsightReport = {
+  generatedAt: string;
+  rowsAnalysed: number;
+  monthsCovered: number;
+  method: string;
+  findings: Finding[];
+};
+
+const DISCOUNT_BANDS: Array<{ label: string; min: number; max: number }> = [
+  { label: "No discount", min: 0, max: 0 },
+  { label: "1–10%", min: 0.0001, max: 0.1 },
+  { label: "11–20%", min: 0.1001, max: 0.2 },
+  { label: "21–30%", min: 0.2001, max: 0.3 },
+  { label: "Over 30%", min: 0.3001, max: Number.POSITIVE_INFINITY },
+];
+
+/** Average margin within each discount band, for bands that actually have rows. */
+function discountBandMargins(rows: OrderRow[]) {
+  return DISCOUNT_BANDS.map((band) => {
+    const matching = rows.filter((row) => row.discount >= band.min && row.discount <= band.max);
+    const sales = sum(matching, "sales");
+    const profit = sum(matching, "profit");
+    return {
+      label: band.label,
+      orders: matching.length,
+      sales,
+      profit,
+      margin: sales > 0 ? (profit / sales) * 100 : null,
+    };
+  }).filter((band) => band.orders > 0);
+}
+
+export function generateInsightReport(rows: OrderRow[]): InsightReport {
+  const findings: Finding[] = [];
+  const months = monthly(rows);
   const totalSales = sum(rows, "sales");
   const totalProfit = sum(rows, "profit");
-  const marginPct = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
-  const trend = monthly(rows);
-  const salesDelta = lastMonthDelta(rows, "sales");
-  const subcategories = groupRows(rows, (r) => r.subCategory).sort((a, b) => b.sales - a.sales);
-  const lossMakers = subcategories.filter((s) => s.profit < 0).sort((a, b) => a.profit - b.profit);
-  const regions = groupRows(rows, (r) => r.region).sort((a, b) => b.profit - a.profit);
-  const topCustomer = customerSummary(rows).sort((a, b) => b.sales - a.sales)[0];
+  const margin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
 
-  const items: AIInsightItem[] = [
-    {
-      id: "ai-insight-1",
-      item_type: "insight",
-      classification: "CALCULATION",
-      priority_score: 0.95,
-      payload: {
-        title: "Commercial Margin & Cumulative Profitability",
-        summary: `The business generated ${currency(totalSales, true)} in cumulative revenue, yielding ${currency(totalProfit, true)} in net operating profit (${percent(marginPct)} margin).`,
-        explanation: `Analysis of ${rows.length.toLocaleString()} validated transactions across ${trend.length} operating months reveals healthy top-line velocity with distinct margin concentrations.`,
+  // ---- 1. Headline economics (pure arithmetic)
+  findings.push({
+    id: "economics",
+    kind: "measured",
+    title: "Overall revenue and margin",
+    detail: `The selected rows total ${currency(totalSales)} of revenue and ${currency(totalProfit)} of profit, an overall margin of ${percent(margin)}.`,
+    evidence: [
+      {
+        statement: `${rows.length.toLocaleString()} order lines across ${months.length} months`,
+        basis: "Row count and monthly grouping of the loaded dataset",
+      },
+      {
+        statement: `Revenue ${currency(totalSales)}, profit ${currency(totalProfit)}, margin ${percent(margin)}`,
+        basis: "Sum of the Sales and Profit columns",
+      },
+    ],
+  });
+
+  // ---- 2. Which sub-categories lose money (measured)
+  const subCategories = groupRows(rows, (row) => row.subCategory);
+  const lossMakers = subCategories
+    .filter((group) => group.profit < 0)
+    .sort((a, b) => a.profit - b.profit);
+
+  if (lossMakers.length) {
+    const worst = lossMakers[0];
+    const totalLoss = lossMakers.reduce((acc, group) => acc + group.profit, 0);
+    findings.push({
+      id: "loss-makers",
+      kind: "measured",
+      title: `${lossMakers.length} sub-categor${lossMakers.length === 1 ? "y" : "ies"} lose money`,
+      detail: `${worst.label} is the largest drag, losing ${currency(Math.abs(worst.profit))} on ${currency(worst.sales)} of revenue. Across all loss-making sub-categories the shortfall is ${currency(Math.abs(totalLoss))}, against total profit of ${currency(totalProfit)}.`,
+      evidence: [
+        {
+          statement: `${worst.label}: revenue ${currency(worst.sales)}, profit ${currency(worst.profit)}, margin ${percent((worst.profit / worst.sales) * 100)}`,
+          basis: "Profit summed by Sub-Category",
+        },
+        {
+          statement: lossMakers
+            .slice(0, 4)
+            .map((group) => `${group.label} ${currency(group.profit)}`)
+            .join(", "),
+          basis: "All sub-categories with negative total profit, worst first",
+        },
+      ],
+      nextStep: `Review pricing and discount policy for ${lossMakers
+        .slice(0, 3)
+        .map((group) => group.label)
+        .join(", ")} before pursuing further volume there.`,
+    });
+  }
+
+  // ---- 3. Does discounting explain it? (measured, then inferred)
+  const bands = discountBandMargins(rows);
+  const undiscounted = bands.find((band) => band.label === "No discount");
+  const deepest = [...bands].reverse().find((band) => band.orders >= 20);
+
+  if (undiscounted?.margin != null && deepest?.margin != null && deepest.label !== "No discount") {
+    const gap = undiscounted.margin - deepest.margin;
+    findings.push({
+      id: "discount-margin",
+      kind: "measured",
+      title: "Margin by discount band",
+      detail: `Undiscounted orders run at ${percent(undiscounted.margin)} margin. Orders in the ${deepest.label} band run at ${percent(deepest.margin)}, a gap of ${percent(Math.abs(gap))}.`,
+      evidence: bands.map((band) => ({
+        statement: `${band.label}: ${band.orders.toLocaleString()} orders, margin ${band.margin !== null ? percent(band.margin) : "n/a"}`,
+        basis: "Margin recomputed within each discount band",
+      })),
+      caveat:
+        "This is an association across order lines, not a controlled comparison. Discount depth is not assigned at random, so part of this gap reflects which products get discounted rather than the discount itself.",
+    });
+
+    if (gap > 10) {
+      findings.push({
+        id: "discount-inference",
+        kind: "inferred",
+        title: "Discount depth is the most likely margin lever",
+        detail: `Margin falls monotonically enough across discount bands that discount policy, rather than product mix alone, looks like the main controllable driver of the ${percent(Math.abs(gap))} spread.`,
         evidence: [
-          { statement: `Total sales: ${currency(totalSales, false)} across ${rows.length} order lines`, source: "Transactional Order Ledger", scope: "exact" },
-          { statement: `Net profit margin: ${percent(marginPct)}`, source: "Financial Aggregations", scope: "exact" }
+          {
+            statement: `Margin gap between undiscounted and ${deepest.label} orders: ${percent(Math.abs(gap))}`,
+            basis: "Difference of the two band margins above",
+          },
         ],
-        confidence: 1.0,
-        uncertainty: "Calculations are deterministic based on recorded transaction history.",
-        next_step: "Isolate sub-categories operating below the target 12% margin hurdle rate."
-      }
-    },
-    {
-      id: "ai-insight-2",
-      item_type: "insight",
-      classification: "FACT",
-      priority_score: 0.92,
-      payload: {
-        title: `${lossMakers[0]?.label || "Tables"} Sub-Category Margin Leakage`,
-        summary: lossMakers.length > 0
-          ? `${lossMakers[0].label} is the primary profit drag, accumulating ${currency(lossMakers[0].profit, false)} in net losses on ${currency(lossMakers[0].sales, true)} of sales.`
-          : "All primary product groups currently maintain positive operating contributions.",
-        explanation: "Deep discounting exceeding 20% on bulky product categories drives negative contribution margins despite solid top-line transaction volume.",
-        evidence: [
-          { statement: `${lossMakers[0]?.label || "Category"} net margin: ${percent(lossMakers[0] ? (lossMakers[0].profit / lossMakers[0].sales) * 100 : 0)}`, source: "Product Segment Aggregations", scope: "exact" }
-        ],
-        confidence: 0.96,
-        uncertainty: "Shipping and handling cost allocations are estimated from catalog baselines.",
-        next_step: "Cap maximum commercial promotional discounts at 15% for heavy furniture items."
-      }
-    },
-    {
-      id: "ai-insight-3",
-      item_type: "recommendation",
-      classification: "RECOMMENDATION",
-      priority_score: 0.88,
-      payload: {
-        title: `Regional Scale Play in ${regions[0]?.label || "West"} Region`,
-        recommendation: `Consolidate regional operating playbooks around ${regions[0]?.label || "West"} (${currency(regions[0]?.profit || 0, true)} profit) to cross-pollinate sales efficiencies into lower-margin territories.`,
-        evidence: [
-          { statement: `${regions[0]?.label || "Leading"} Region accounts for ${percent(regions[0] ? (regions[0].profit / Math.max(totalProfit, 1)) * 100 : 0)} of all company profits.`, source: "Territory Analytics", scope: "exact" }
-        ],
-        confidence: 0.85,
-        risks: ["Regional demand elasticity may not directly translate to lower-density markets."],
-        next_step: "Conduct a 60-day commercial pilot testing Western pricing tiers in underperforming zones."
-      }
-    },
-    {
-      id: "ai-insight-4",
-      item_type: "future_signal",
-      classification: "PREDICTION",
-      priority_score: 0.82,
-      payload: {
-        title: "Trajectory Shift: Near-Term Revenue Projection",
-        summary: `Recent month-over-month trajectory (${salesDelta !== null ? `${salesDelta >= 0 ? "+" : ""}${salesDelta.toFixed(1)}%` : "stable"}) indicates continued revenue expansion into next quarter if supply cadence holds.`,
-        evidence: [
-          { statement: `Trailing month performance recorded at ${salesDelta !== null ? `${salesDelta.toFixed(1)}%` : "0%"} delta`, source: "Monthly Time-Series Engine", scope: "exact" }
-        ],
-        confidence: 0.78,
-        uncertainty: "Macro-economic interest rates and supplier logistics could introduce variance.",
-        next_step: "Align quarterly inventory orders against upper-bound forecast horizons."
-      }
-    },
-    {
-      id: "ai-insight-5",
-      item_type: "suggested_question",
-      classification: "INFERENCE",
-      priority_score: 0.75,
-      payload: {
-        question: `What percentage of ${topCustomer?.label || "Key Account"} purchases are tied to discounted catalog SKUs?`,
-        explanation: "Key account concentration represents both an operational anchor and a customer retention risk if contracts are underpriced.",
-        evidence: [
-          { statement: `Top account (${topCustomer?.label || "Account"}) represents ${currency(topCustomer?.sales || 0, false)} across ${topCustomer?.orders || 0} unique orders.`, source: "Customer Lifetime Profiler", scope: "exact" }
-        ],
-        confidence: 0.84,
-        next_step: "Review contract terms for the top 10 enterprise customer accounts."
-      }
+        caveat:
+          "Confirming this needs a holdout test: cap discounts on a subset of products and compare margin and volume against an untouched control group.",
+        nextStep: "Test a discount ceiling on the worst-margin sub-categories and measure the volume response before rolling it out.",
+      });
     }
-  ];
+  }
+
+  // ---- 4. Revenue concentration (measured)
+  const customers = customerSummary(rows).sort((a, b) => b.sales - a.sales);
+  if (customers.length >= 20) {
+    const topDecile = Math.max(1, Math.round(customers.length * 0.1));
+    const topShare =
+      (customers.slice(0, topDecile).reduce((acc, customer) => acc + customer.sales, 0) /
+        Math.max(totalSales, 1)) *
+      100;
+    findings.push({
+      id: "concentration",
+      kind: "measured",
+      title: "Customer revenue concentration",
+      detail: `The top ${topDecile.toLocaleString()} customers (${percent((topDecile / customers.length) * 100, 0)} of the base) account for ${percent(topShare)} of revenue.`,
+      evidence: [
+        {
+          statement: `${customers.length.toLocaleString()} distinct customers; top ${topDecile} contribute ${currency(customers.slice(0, topDecile).reduce((a, c) => a + c.sales, 0))}`,
+          basis: "Revenue summed by Customer ID, ranked descending",
+        },
+        {
+          statement: `Largest single account: ${customers[0].label}, ${currency(customers[0].sales)} across ${customers[0].orders} orders`,
+          basis: "Top row of the customer ranking",
+        },
+      ],
+      caveat:
+        topShare < 30
+          ? "Revenue is relatively spread out, so this is a low-concentration book rather than a key-account risk."
+          : undefined,
+    });
+  }
+
+  // ---- 5. Regional profit spread (measured)
+  const regions = groupRows(rows, (row) => row.region)
+    .filter((group) => group.label)
+    .sort((a, b) => b.profit - a.profit);
+  if (regions.length >= 2) {
+    const best = regions[0];
+    const worst = regions[regions.length - 1];
+    const bestMargin = best.sales > 0 ? (best.profit / best.sales) * 100 : 0;
+    const worstMargin = worst.sales > 0 ? (worst.profit / worst.sales) * 100 : 0;
+    findings.push({
+      id: "regions",
+      kind: "measured",
+      title: "Regional margin spread",
+      detail: `${best.label} is the strongest region at ${percent(bestMargin)} margin; ${worst.label} is the weakest at ${percent(worstMargin)}. The two differ by ${percent(Math.abs(bestMargin - worstMargin))} on comparable revenue bases.`,
+      evidence: regions.map((group) => ({
+        statement: `${group.label}: revenue ${currency(group.sales)}, profit ${currency(group.profit)}, margin ${percent(group.sales > 0 ? (group.profit / group.sales) * 100 : 0)}`,
+        basis: "Revenue and profit summed by Region",
+      })),
+    });
+  }
+
+  // ---- 6. Forward view, taken from the validated forecaster (not asserted)
+  try {
+    const series = buildMonthlySeries(rows, "sales");
+    const forecast = forecastSeries(series, "sales", 6);
+    const projected = forecast.forecastValues.reduce((acc, point) => acc + point.value, 0);
+    // Compare against the same calendar months a year earlier. Setting the
+    // projected low season against the trailing high season would manufacture
+    // a decline that is purely seasonal.
+    const byPeriod = new Map(series.map((point) => [point.period, point.value]));
+    const priorYear = forecast.forecastValues.map((point) => {
+      const [year, month] = point.period.split("-");
+      return byPeriod.get(`${Number(year) - 1}-${month}`);
+    });
+    const comparable = priorYear.every((value) => value !== undefined);
+    const comparisonTotal = comparable
+      ? (priorYear as number[]).reduce((acc, value) => acc + value, 0)
+      : series.slice(-6).reduce((acc, point) => acc + point.value, 0);
+    const comparisonLabel = comparable ? "the same six months last year" : "the trailing six months";
+    const change = comparisonTotal > 0 ? ((projected - comparisonTotal) / comparisonTotal) * 100 : null;
+    const v = forecast.validation;
+
+    findings.push({
+      id: "outlook",
+      kind: v.reliability === "weak" || v.reliability === "unvalidated" ? "inferred" : "measured",
+      title: `Six-month revenue outlook (${v.reliabilityHeadline.toLowerCase()})`,
+      detail:
+        change !== null
+          ? `The selected model projects ${currency(projected)} over the next six months, ${change >= 0 ? "up" : "down"} ${percent(Math.abs(change))} against ${comparisonLabel} (${currency(comparisonTotal)}). Its measured out-of-sample error is ${v.selected.mape !== null ? percent(v.selected.mape) : currency(v.selected.mae)} per month.`
+          : `The selected model projects ${currency(projected)} over the next six months.`,
+      evidence: [
+        {
+          statement: `${forecast.methodLabel} selected from ${v.candidatesEvaluated} candidates`,
+          basis: "Rolling-origin backtest on the loaded history",
+        },
+        {
+          statement: `Holdout error: ${v.selected.mape !== null ? `MAPE ${percent(v.selected.mape)}, ` : ""}MAE ${currency(v.selected.mae)} across ${v.selected.forecastCount} forecasts${v.holdoutRange ? ` (${v.holdoutRange.start} to ${v.holdoutRange.end})` : ""}`,
+          basis: "Forecasts scored against months withheld from model selection",
+        },
+        {
+          statement: `Baseline (${v.baselineLabel.toLowerCase()}) error: MAE ${currency(v.baseline.mae)}`,
+          basis: "Same months, same metric, naive model",
+        },
+      ],
+      caveat: v.reliabilityDetail,
+      nextStep: "Open the Forecasting page for the per-horizon error breakdown and the full model bake-off.",
+    });
+  } catch {
+    // Not enough history to forecast. Saying nothing is better than guessing.
+  }
 
   return {
-    id: `client-ai-run-${Date.now()}`,
-    provider: "grounded-rules-engine",
-    model: "executive-analytical-synthesizer",
-    created_at: new Date().toISOString(),
-    context_metadata: {
-      dataset_count: 1,
-      result_count: items.length,
-      forecast_count: 1,
-      limits: { bounded_context: true }
-    },
-    items
+    generatedAt: new Date().toISOString(),
+    rowsAnalysed: rows.length,
+    monthsCovered: months.length,
+    method: "Deterministic rule-based analysis computed in the browser",
+    findings,
   };
 }

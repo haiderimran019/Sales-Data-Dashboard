@@ -4,7 +4,10 @@ import {
   BrainCircuit,
   ChevronRight,
   Database,
+  Gauge,
   LayoutDashboard,
+  Lightbulb,
+  Package,
   LogOut,
   Menu,
   Moon,
@@ -25,39 +28,42 @@ const navigationGroups = [
   {
     title: "Workspace",
     items: [
-      { to: "/", label: "Business Dashboard", icon: LayoutDashboard },
-      { to: "/add-data", label: "Upload & Connect", icon: Upload },
+      { to: "/", label: "Dashboard builder", icon: LayoutDashboard },
+      { to: "/retail-overview", label: "Overview", icon: Gauge },
+      { to: "/add-data", label: "Load data", icon: Upload },
     ],
   },
   {
-    title: "Business Analytics",
+    title: "Analysis",
     items: [
-      { to: "/sales", label: "Revenue & Sales", icon: BarChart3 },
-      { to: "/profitability", label: "Profit & Margins", icon: WalletCards },
+      { to: "/sales", label: "Revenue", icon: BarChart3 },
+      { to: "/profitability", label: "Profit & margin", icon: WalletCards },
       { to: "/customers", label: "Customers", icon: UsersRound },
-      { to: "/forecasting", label: "Forecasting", icon: TrendingUp },
+      { to: "/products", label: "Products", icon: Package },
+      { to: "/insights", label: "Insights", icon: Lightbulb },
     ],
   },
   {
-    title: "AI Intelligence",
+    title: "Modelling",
     items: [
-      { to: "/ai-analyst", label: "Gemini Business Analyst", icon: BrainCircuit },
+      { to: "/forecasting", label: "Forecasting", icon: TrendingUp },
+      { to: "/ai-analyst", label: "Automated findings", icon: BrainCircuit },
     ],
   },
 ];
 
 const pageTitles: Record<string, string> = {
-  "/": "Business Dashboard",
-  "/retail-overview": "Executive Overview",
-  "/sales": "Revenue & Sales",
-  "/profitability": "Profitability & Margins",
-  "/customers": "Customer Analytics",
-  "/products": "Product Catalog Explorer",
-  "/insights": "Strategic Commercial Insights",
-  "/ai-analyst": "Gemini Business Analyst",
-  "/forecasting": "Predictive Forecasting & Projections",
-  "/history": "Workspace Audit & History",
-  "/add-data": "Upload & Connect Data",
+  "/": "Dashboard builder",
+  "/retail-overview": "Overview",
+  "/sales": "Revenue",
+  "/profitability": "Profit & margin",
+  "/customers": "Customers",
+  "/products": "Products",
+  "/insights": "Insights",
+  "/ai-analyst": "Automated findings",
+  "/forecasting": "Forecasting",
+  "/history": "History",
+  "/add-data": "Load data",
 };
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -66,7 +72,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation();
   const fileInput = useRef<HTMLInputElement>(null);
   const { importCsv, sourceName } = useData();
-  const { user, status, logout } = useAuth();
+  const { user, status, backendConfigured, logout } = useAuth();
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
@@ -82,7 +88,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     event.target.value = "";
   };
 
-  if (status === "unauthenticated") return <LoginPage />;
+  // Sign-in only gates the app when a backend is configured; the published
+  // dashboard runs standalone against the bundled dataset.
+  if (backendConfigured && status === "unauthenticated") return <LoginPage />;
 
   return (
     <div className="min-h-screen bg-canvas text-ink">

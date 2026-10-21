@@ -10,7 +10,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "postbuild": "cp dist/index.html dist/404.html",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "validate:forecast": "node scripts/validate-forecast.mjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.4",
