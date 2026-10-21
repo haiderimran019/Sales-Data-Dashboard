@@ -1,129 +1,77 @@
-# Executive Sales & Retail Analytics Dashboard
+# Superstore Sales Analytics Dashboard
 
-An interactive retail analytics dashboard built from the Superstore dataset. The project combines Python-based data preparation with a React and TypeScript web application to explore sales, profitability, customer segments, product trends, and regional performance.
+An end-to-end retail analytics project: raw Superstore order data is cleaned and explored in Python, then served through an interactive React + TypeScript dashboard that is built and deployed automatically to GitHub Pages.
 
-## Links
+**[▶ Live dashboard](https://haiderimran019.github.io/Sales-Data-Dashboard/)**
 
-- [Live Dashboard](https://haiderimran019.github.io/Sales-Data-Dashboard/)
-- [GitHub Repository](https://github.com/haiderimran019/Sales-Data-Dashboard)
+![Executive overview of the Superstore dashboard](docs/dashboard-overview.png)
 
-## Project Overview
+## At a glance
 
-This project demonstrates an end-to-end data analytics workflow:
+| | |
+| --- | --- |
+| **Dataset** | Sample Superstore, 9,994 order lines (2014–2017) |
+| **Analysis** | pandas · Jupyter (exploration, cleaning, sales analysis) |
+| **Dashboard** | React 18 · TypeScript · Vite · Tailwind CSS · Recharts |
+| **Delivery** | GitHub Actions → GitHub Pages on every push to `main` |
 
-1. Raw retail data is cleaned and validated with Python and pandas.
-2. Jupyter notebooks are used for exploratory data analysis and feature engineering.
-3. A cleaned CSV file is prepared for the web application.
-4. The React and TypeScript dashboard loads and analyzes the data in the browser.
-5. GitHub Actions builds and deploys the application to GitHub Pages.
+## What the dashboard shows
 
-The dashboard is intended for educational and portfolio use. It demonstrates how cleaned business data can be transformed into interactive analytical views.
+- **Executive overview** — total sales, profit, margin, orders and average order value, with month-over-month change and an auto-generated readout of the leading category and region.
+- **Sales analysis** — clickable category → sub-category drill-down, top states by revenue, and segment mix by ship mode.
+- **Profitability** — margin by category and region, and the impact of discounting on profit.
+- **Customers** — segment comparison (Consumer, Corporate, Home Office) and customer value.
+- **Product explorer** — searchable, sortable product table filtered by sub-category.
+- **Insights** — plain-language summaries of the patterns in the selected period.
 
-## Key Features
+Every view responds to the date-range filter. You can also **import your own CSV** in the same Superstore format, and switch between light and dark mode.
 
-### Executive Overview
-
-- Total sales.
-- Total profit.
-- Profit margin.
-- Total orders.
-- Average order value.
-- Interactive date filtering.
-- Dynamic KPI calculations.
-
-### Sales Performance
-
-- Monthly sales trends.
-- Quarterly sales trends.
-- Regional sales distribution.
-- Category performance.
-- Interactive charts and filters.
-
-### Profitability Analysis
-
-- Profit and margin analysis.
-- Discount impact visualization.
-- Identification of low-profit or loss-making categories.
-- Profitability comparisons across products and regions.
-
-### Customer Insights
-
-- Customer value metrics.
-- Order-frequency analysis.
-- Customer-segment breakdown.
-- Consumer, Corporate, and Home Office comparisons.
-
-### Product Explorer
-
-- Searchable product table.
-- Multi-column sorting.
-- Sub-category filtering.
-- Product-level sales and profitability information.
-- Data export functionality, where supported.
-
-### Business Insights
-
-- Automatically generated analytical summaries.
-- Data-preparation explanations.
-- Key operational patterns from the dataset.
-
-### Interactive Controls
-
-- Date-range filtering.
-- CSV file import.
-- Light and dark modes.
-- Responsive charts.
-- Sortable tables.
-- Responsive layout for different screen sizes.
-
-## Technology Stack
-
-### Data Preparation and Analysis
-
-- Python.
-- pandas.
-- Jupyter Notebook.
-- Exploratory data analysis.
-- Data cleaning.
-- Feature engineering.
-- CSV processing.
-
-### Frontend and User Interface
-
-- React 18.
-- TypeScript.
-- Vite.
-- Tailwind CSS.
-- Recharts.
-- React Router.
-- Framer Motion.
-- Lucide React.
-- Papa Parse.
-
-### Deployment
-
-- GitHub Actions.
-- GitHub Pages.
-- Automated build and deployment workflow.
-
-## Data Pipeline
-
-### 1. Extraction and Cleaning
-
-Python and pandas notebooks are used to:
-
-- Inspect the raw data.
-- Remove duplicate records where appropriate.
-- Handle missing or invalid values.
-- Format date columns.
-- Create analytical fields such as profit margin.
-- Export a cleaned CSV file.
-
-### 2. Asset Preparation
-
-The build process copies the cleaned CSV file into the web application's public assets directory.
-
-The actual location of the data-copy script should match the repository structure. In this repository, the script is expected to be located at:
+## How the data flows
 
 ```text
-webapp/copy-data.mjs
+data/raw/Sample-Superstore.csv
+        │  notebooks/01_data_exploration.ipynb   inspect structure and quality
+        │  notebooks/02_data_cleaning.ipynb      fix types, dates and categories
+        ▼
+data/processed/superstore_clean.csv
+        │  notebooks/03_sales_analysis.ipynb     trends, margins, segments
+        │  webapp/scripts/copy-data.mjs          copied into the app at build time
+        ▼
+webapp/  (React dashboard)  ──GitHub Actions──▶  GitHub Pages
+```
+
+## Project structure
+
+```text
+├── data/
+│   ├── raw/                 Original Superstore export
+│   └── processed/           Cleaned CSV used by the dashboard
+├── notebooks/               Exploration, cleaning and analysis notebooks
+├── webapp/                  React + TypeScript dashboard
+│   ├── src/pages/           Overview, Sales, Profitability, Customers, Products, Insights
+│   ├── src/lib/analytics.ts Aggregation and KPI logic
+│   └── scripts/             Build-time data copy
+├── dashboard.py             Lightweight pandas-only version served locally
+└── .github/workflows/       Build and deploy pipeline
+```
+
+## Run it locally
+
+**React dashboard**
+
+```bash
+cd webapp
+npm install
+npm run dev
+```
+
+**Python version** (no Node needed)
+
+```bash
+pip install pandas
+python dashboard.py        # opens http://127.0.0.1:8000
+```
+
+## Notes
+
+Built for learning and portfolio purposes using the public Sample Superstore dataset. The figures describe that sample data, not a real business.
