@@ -12,6 +12,8 @@ export default {
         muted: "hsl(var(--muted))",
         line: "hsl(var(--line))",
         brand: "hsl(var(--brand))",
+        "brand-soft": "hsl(var(--brand-soft))",
+        accent: "hsl(var(--accent))",
         positive: "hsl(var(--positive))",
         negative: "hsl(var(--negative))"
       },

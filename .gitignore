@@ -1,4 +1,5 @@
 .DS_Store
+.vscode/
 .venv/
 __pycache__/
 *.pyc
@@ -15,3 +16,11 @@ webapp/vite.config.js
 .env
 .env.*
 !.env.example
+.storage/
+backend/.storage/venv/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+node_modules/
+dist/
+*.log
